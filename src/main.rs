@@ -1,4 +1,4 @@
-use clap::Parser;
+use clap::{Parser, CommandFactory};
 use std::path::{Path, PathBuf};
 use sysinfo::{Pid, System, Signal, ProcessesToUpdate};
 
@@ -56,8 +56,9 @@ fn main() {
     } else if let Some(port) = args.port {
         find_process_by_port(port, &args.protocol)
     } else {
-        eprintln!("错误：请提供 --file 或 --port 参数。");
-        std::process::exit(1);
+        // 没有提供参数时显示帮助信息
+        Args::command().print_help().unwrap();
+        std::process::exit(0);
     };
 
     if let Some(pid) = pid_to_kill {

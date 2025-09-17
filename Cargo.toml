@@ -1,6 +1,6 @@
 [package]
 name = "unlocker-rs"
-version = "0.3.0"
+version = "0.3.2"
 edition = "2021"
 description = "A cross-platform tool to find and terminate processes that are locking files or ports"
 license = "MIT"
