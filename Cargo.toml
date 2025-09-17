@@ -1,0 +1,28 @@
+[package]
+name = "unlocker-rs"
+version = "0.3.0"
+edition = "2021"
+description = "A cross-platform tool to find and terminate processes that are locking files or ports"
+license = "MIT"
+
+[dependencies]
+clap = { version = "4.4", features = ["derive"] }
+sysinfo = "0.30"
+netstat2 = "0.9"
+
+# 特定于平台的依赖
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-sys = { version = "0.52", features = [
+    "Win32_Foundation", 
+    "Win32_System_Threading", 
+    "Win32_System_SystemServices", 
+    "Win32_Storage_FileSystem",
+    "Win32_System_RestartManager",
+    "Win32_System_Diagnostics_ToolHelp"
+] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+# Linux 不需要额外的库，使用标准库即可
+
+[target.'cfg(target_os = "macos")'.dependencies]
+# macOS 的原生 API 实现较复杂，这里将演示通过调用 lsof 命令的方式

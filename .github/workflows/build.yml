@@ -1,0 +1,135 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - 'v*.*.*'
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run tests
+        run: cargo test
+
+      - name: Build (release)
+        run: cargo build --release
+
+  build:
+    name: Build ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install musl and add target (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
+          rustup target add x86_64-unknown-linux-musl
+
+      - name: Build static (Linux musl)
+        if: runner.os == 'Linux'
+        run: cargo build --release --target x86_64-unknown-linux-musl
+
+      - name: Collect artifacts (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p dist
+          cp target/release/unlocker-rs dist/unlocker-rs-linux
+          cp target/x86_64-unknown-linux-musl/release/unlocker-rs dist/unlocker-rs-linux-musl-static
+
+      - name: Collect artifacts (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p dist
+          cp target/release/unlocker-rs dist/unlocker-rs-macos
+
+      - name: Collect artifacts (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item target/release/unlocker-rs.exe dist/unlocker-rs-windows.exe
+          # Build static CRT version
+          $env:RUSTFLAGS='-C target-feature=+crt-static'
+          cargo build --release
+          Copy-Item target/release/unlocker-rs.exe dist/unlocker-rs-windows-static.exe -Force
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: unlocker-rs-${{ runner.os }}
+          path: |
+            dist/unlocker-rs-linux*
+            dist/unlocker-rs-macos*
+            dist/unlocker-rs-windows*.exe
+          if-no-files-found: error
+
+  release:
+    name: Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: unlocker-rs-*
+          merge-multiple: true
+          path: ./artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: false
+          prerelease: false
+          files: |
+            ./artifacts/unlocker-rs-linux*
+            ./artifacts/unlocker-rs-macos*
+            ./artifacts/unlocker-rs-windows*.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

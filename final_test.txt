@@ -1,0 +1,2 @@
+这是一个最终测试文件，用于验证 unlocker-rs 的完整功能。
+包括 Windows Restart Manager API 的文件锁定检测。
