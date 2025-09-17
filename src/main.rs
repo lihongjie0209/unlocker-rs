@@ -1,6 +1,6 @@
 use clap::Parser;
 use std::path::{Path, PathBuf};
-use sysinfo::{Pid, System, Signal};
+use sysinfo::{Pid, System, Signal, ProcessesToUpdate};
 
 // 只在 macOS 上导入 Command
 #[cfg(target_os = "macos")]
@@ -76,10 +76,10 @@ fn main() {
 // 跨平台获取进程名称的简单函数
 fn get_process_name_simple(pid: Pid) -> String {
     let mut s = System::new_all();
-    s.refresh_processes();
+    s.refresh_processes(ProcessesToUpdate::All, false);
     
     if let Some(process) = s.process(pid) {
-        process.name().to_string()
+        process.name().to_string_lossy().to_string()
     } else {
         "未知".to_string()
     }
@@ -450,7 +450,7 @@ fn find_process_by_file(_file_path: &Path) -> Option<Pid> {
 // --- 3. 杀死进程 (跨平台) ---
 fn kill_process(pid: Pid) {
     let mut s = System::new_all();
-    s.refresh_processes(); // 刷新进程列表
+    s.refresh_processes(ProcessesToUpdate::All, false); // 刷新进程列表
 
     if let Some(process) = s.process(pid) {
         // 首先尝试友好地终止 (SIGTERM)
